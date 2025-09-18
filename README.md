@@ -15,3 +15,7 @@ The project relies on publicly available institutional datasets:
 - [IPEDS](https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?year=2023&sid=60195fbd-d0c2-461f-8781-0ff6749fe829&rtid=1) – Annual data on enrollment, employees, and graduates.  
 - [NSF HERD Survey](https://ncsesdata.nsf.gov/profiles/site?method=rankingBySource&ds=HERD&o=n&s=a) – Research and development expenditure data.  
 
+## Requirements
+Install the dependencies with:
+```bash
+pip install -r requirements.txt
