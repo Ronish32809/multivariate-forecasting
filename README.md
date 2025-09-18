@@ -1,20 +1,17 @@
 # Multivariate KPI Forecasting
 
-This repository contains code and notebooks for forecasting university key performance indicators (KPIs) using **Random Forest** and **LSTM**.  
-The analysis covers **enrollment, employees, graduates, budgets, and R&D expenditure** with annual data from **IPEDS (2010–2023)** and **NSF HERD**.
+This repository documents a forecasting framework for university key performance indicators (KPIs) using **Random Forest** and **LSTM**.  
+The analysis covers **enrollment, employees, graduates, budgets, and R&D expenditure** with annual data from **IPEDS (2010–2023)** and the **NSF HERD** survey.
 
-## What’s Included
-- Data preprocessing pipeline (cleaning, interpolation, normalization)
-- Random Forest and LSTM forecasting models
-- Evaluation using MAE, RMSE, MAPE, and R²
-- Forecasts applied to Boise State University, Eastern Oregon University, and UAB
+## Project Overview
+- Focuses on multivariate forecasting of higher education KPIs.  
+- Implements Random Forest for stable baseline predictions.  
+- Uses LSTM to capture potential trend shifts.  
+- Evaluation metrics include MAE, RMSE, MAPE, and R².  
+- Framework tested on multiple universities (Boise State University, Eastern Oregon University, and the University of Alabama at Birmingham).  
 
-## Usage
-1. Open the Jupyter notebook in `/notebooks`.
-2. Run the preprocessing and model training cells.
-3. Review forecast plots and error metrics.
+## Data Sources
+The project relies on publicly available institutional datasets:
+- [IPEDS](https://nces.ed.gov/ipeds/datacenter/DataFiles.aspx?year=2023&sid=60195fbd-d0c2-461f-8781-0ff6749fe829&rtid=1) – Annual data on enrollment, employees, and graduates.  
+- [NSF HERD Survey](https://ncsesdata.nsf.gov/profiles/site?method=rankingBySource&ds=HERD&o=n&s=a) – Research and development expenditure data.  
 
-## Requirements
-Install dependencies:
-```bash
-pip install -r requirements.txt
