@@ -7,9 +7,9 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from pathlib import Path
 
 st.set_page_config(page_title="KPI Forecasting", layout="wide")
-st.title("📊 Multivariate KPI Forecasting")
+st.title("Multivariate KPI Forecasting")
 
-# ---------- Load local datasets ----------
+# Load local datasets 
 DATA_DIR = Path("data")
 DATASETS = {
     "Boise State": DATA_DIR / "boise_state_kpi.xlsx",
