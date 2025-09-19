@@ -13,17 +13,19 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
+
 # default forecast knobs
 DEFAULT_FORECAST_YEARS = 5
 DEFAULT_RF_LAGS       = 4
-DEFAULT_RF_TREES      = 300
+DEFAULT_RF_TREES      = 200
 SPLIT_RATIO           = 0.80
 MIN_TEST_POINTS       = 2
 
 # LSTM setup — learning rate is fixed on purpose
 LEARNING_RATE   = 0.001
-LSTM_UNITS      = 32
-LSTM_ACTIVATION = "tanh"
+DEFAULT_LSTM_UNITS = 32
+DEFAULT_LSTM_ACT   = "tanh"
+
 
 # PATHS & COLUMN NORMALIZATION (maps R&D header variations)
 DATA_DIR = Path("data")
@@ -48,6 +50,7 @@ LABELS = {
     "Total_Graduates": "Total Graduates",
 }
 
+
 # OPTIONAL TENSORFLOW (if not installed, we just skip LSTM and keep RF)
 use_lstm = True
 try:
@@ -59,9 +62,10 @@ try:
     import tensorflow.keras.backend as K
     tf.config.run_functions_eagerly(True)
 except Exception:
-    use_lstm = False  # this mirrors the notebook behavior
+    use_lstm = False  # mirrors the notebook behavior
 
 np.random.seed(42)
+
 
 # STREAMLIT SIDEBAR (same spirit as notebook params)
 st.set_page_config(page_title="University KPI Forecasts", layout="wide")
@@ -79,13 +83,19 @@ with st.sidebar.expander("Parameters", expanded=True):
     forecast_years = st.number_input("Forecast years", 1, 20, DEFAULT_FORECAST_YEARS, 1)
     rf_lags        = st.number_input("RF lags (lookback)", 1, 24, DEFAULT_RF_LAGS, 1)
     rf_estimators  = st.number_input("RF trees (n_estimators)", 10, 1000, DEFAULT_RF_TREES, 10)
-    # lr intentionally not exposed — locked to keep runs consistent
+
+    # LSTM hyperparams (user can play with these; LR remains fixed)
+    lstm_units      = st.number_input("LSTM units", 8, 256, DEFAULT_LSTM_UNITS, 8)
+    lstm_activation = st.selectbox("LSTM activation", ["tanh", "relu", "sigmoid"], index=0)
+
     st.caption(f"Train/Test split: {int(SPLIT_RATIO*100)}/{int((1-SPLIT_RATIO)*100)} · Min test pts: {MIN_TEST_POINTS}")
-    st.caption(f"LSTM: units={LSTM_UNITS}, activation={LSTM_ACTIVATION}, lr={LEARNING_RATE} (fixed)")
+    st.caption(f"LSTM learning rate (fixed): {LEARNING_RATE}")
 
 run = st.sidebar.button("Run forecast")
 
+
 # STEP 2: HELPERS (same formulas/ideas as notebook)
+
 def make_optimizer(lr=LEARNING_RATE):
     return Adam(learning_rate=lr)
 
@@ -171,8 +181,11 @@ def choose_series(df_one_uni: pd.DataFrame, kpi_name: str):
         raise KeyError("'Employees' not found in this file.")
     raise KeyError(f"Unknown KPI: {kpi_name}")
 
+
 # STEP 3: MULTIVARIATE VALIDATION + MULTIVARIATE FORECASTS
-def validate_series_multivariate(series: pd.Series, pretty_label: str, df_all_cols: pd.DataFrame):
+
+def validate_series_multivariate(series: pd.Series, pretty_label: str, df_all_cols: pd.DataFrame,
+                                 lstm_units_: int, lstm_activation_: str):
     """80/20 validation:
        • RF: lags of target + contemporaneous covariates
        • LSTM: window = [target + other KPIs] → next target
@@ -236,7 +249,7 @@ def validate_series_multivariate(series: pd.Series, pretty_label: str, df_all_co
 
             K.clear_session()
             lstm = Sequential([
-                LSTM(LSTM_UNITS, activation=LSTM_ACTIVATION, input_shape=(rf_lags, X_l.shape[2])),
+                LSTM(lstm_units_, activation=lstm_activation_, input_shape=(rf_lags, X_l.shape[2])),
                 Dropout(0.1),
                 Dense(1)
             ])
@@ -261,7 +274,9 @@ def validate_series_multivariate(series: pd.Series, pretty_label: str, df_all_co
     metrics = pd.DataFrame(rows).sort_values("RMSE").reset_index(drop=True)
     return metrics
 
-def predict_series_multivariate(series: pd.Series, pretty_label: str, df_all_cols: pd.DataFrame, years_ahead: int):
+
+def predict_series_multivariate(series: pd.Series, pretty_label: str, df_all_cols: pd.DataFrame,
+                                years_ahead: int, lstm_units_: int, lstm_activation_: str):
     """returns (rf_forecast, lstm_forecast_or_None, future_index)"""
     s = series.sort_index().astype(float).interpolate().ffill().bfill()
     future_index = pd.date_range(start=f"{s.index.max().year+1}-01-01",
@@ -313,7 +328,7 @@ def predict_series_multivariate(series: pd.Series, pretty_label: str, df_all_col
 
             K.clear_session()
             lstm = Sequential([
-                LSTM(LSTM_UNITS, activation=LSTM_ACTIVATION, input_shape=(rf_lags, X_l.shape[2])),
+                LSTM(lstm_units_, activation=lstm_activation_, input_shape=(rf_lags, X_l.shape[2])),
                 Dropout(0.1),
                 Dense(1)
             ])
@@ -337,7 +352,9 @@ def predict_series_multivariate(series: pd.Series, pretty_label: str, df_all_col
 
     return rf_fore, lstm_fore, future_index
 
+
 # PLOTTING
+
 def plot_single(series, label, rf_fore, lstm_fore, future_idx, uni_key):
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.plot(series.index, series.values, 'o-', label="Actual (history)")
@@ -363,7 +380,9 @@ def plot_overlay(all_lines, kpi_name, y_label, year0, year1):
     ax.grid(True); ax.legend(ncol=3); fig.tight_layout()
     return fig
 
+
 # STEP 4: DISPATCH / RENDER
+
 if not run:
     st.info("Choose options and click **Run forecast**.")
     st.stop()
@@ -374,14 +393,16 @@ try:
         df_uni = load_excel_kpis(EXCEL_PATHS[university_choice])
         series, label = choose_series(df_uni, kpi_to_run)
 
-        metrics = validate_series_multivariate(series, label, df_uni)
+        metrics = validate_series_multivariate(series, label, df_uni, lstm_units, lstm_activation)
         st.subheader(f"80/20 Validation — {university_choice.upper()} — {label}")
         if metrics is not None and not metrics.empty:
             st.dataframe(metrics.round(4), use_container_width=True)
         else:
             st.caption("Not enough data to run a robust validation (still forecasting below).")
 
-        rf_fore, lstm_fore, future_idx = predict_series_multivariate(series, label, df_uni, forecast_years)
+        rf_fore, lstm_fore, future_idx = predict_series_multivariate(
+            series, label, df_uni, forecast_years, lstm_units, lstm_activation
+        )
         st.pyplot(plot_single(series, label, rf_fore, lstm_fore, future_idx, university_choice), clear_figure=True)
 
         out = pd.DataFrame({"Random Forest": rf_fore}, index=future_idx)
@@ -401,14 +422,16 @@ try:
                 series, label = choose_series(df_uni, kpi_to_run)
                 last_label = label
 
-                metrics = validate_series_multivariate(series, label, df_uni)
+                metrics = validate_series_multivariate(series, label, df_uni, lstm_units, lstm_activation)
                 if metrics is not None and not metrics.empty:
                     tmp = metrics.copy()
                     tmp.insert(0, "University", uni_key.upper())
                     tmp.insert(1, "KPI", label)
                     val_rows.append(tmp)
 
-                rf_fore, lstm_fore, future_idx = predict_series_multivariate(series, label, df_uni, forecast_years)
+                rf_fore, lstm_fore, future_idx = predict_series_multivariate(
+                    series, label, df_uni, forecast_years, lstm_units, lstm_activation
+                )
                 any_future = future_idx  # hold any valid index for title
 
                 lines.append({"uni": uni_key, "series": series, "rf": rf_fore, "lstm": lstm_fore, "future": future_idx})
@@ -419,7 +442,8 @@ try:
                 tables.append(t.add_prefix(f"{uni_key.upper()} "))
 
             except Exception as e:
-                st.warning(f"{uni_key.upper()}: {e}")
+                # concise per-school message (no attribute typos)
+                st.warning(f"{uni_key.upper()}: {str(e)}")
                 continue
 
         # guard against the DatetimeIndex truthiness error
