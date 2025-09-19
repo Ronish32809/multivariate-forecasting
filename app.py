@@ -13,8 +13,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 
-
-# default forecast knobs 
+# default forecast knobs
 DEFAULT_FORECAST_YEARS = 5
 DEFAULT_RF_LAGS       = 4
 DEFAULT_RF_TREES      = 300
@@ -26,8 +25,7 @@ LEARNING_RATE   = 0.001
 LSTM_UNITS      = 32
 LSTM_ACTIVATION = "tanh"
 
-
-#  PATHS & COLUMN NORMALIZATION (maps R&D header variations)
+# PATHS & COLUMN NORMALIZATION (maps R&D header variations)
 DATA_DIR = Path("data")
 EXCEL_PATHS = {
     "bsu":             DATA_DIR / "boise_state_kpi.xlsx",
@@ -50,7 +48,6 @@ LABELS = {
     "Total_Graduates": "Total Graduates",
 }
 
-
 # OPTIONAL TENSORFLOW (if not installed, we just skip LSTM and keep RF)
 use_lstm = True
 try:
@@ -65,7 +62,6 @@ except Exception:
     use_lstm = False  # this mirrors the notebook behavior
 
 np.random.seed(42)
-
 
 # STREAMLIT SIDEBAR (same spirit as notebook params)
 st.set_page_config(page_title="University KPI Forecasts", layout="wide")
@@ -88,7 +84,6 @@ with st.sidebar.expander("Parameters", expanded=True):
     st.caption(f"LSTM: units={LSTM_UNITS}, activation={LSTM_ACTIVATION}, lr={LEARNING_RATE} (fixed)")
 
 run = st.sidebar.button("Run forecast")
-
 
 # STEP 2: HELPERS (same formulas/ideas as notebook)
 def make_optimizer(lr=LEARNING_RATE):
@@ -152,7 +147,7 @@ def load_excel_kpis(excel_path: Path) -> pd.DataFrame:
     df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
     df = df.dropna(subset=["Date"]).sort_values("Date").set_index("Date")
 
-    # make numeric + fill tiny gaps 
+    # make numeric + fill tiny gaps
     for col in [c for c in df.columns if c != "Date"]:
         df[col] = pd.to_numeric(df[col], errors="coerce").interpolate("linear").ffill().bfill()
     return df
@@ -175,7 +170,6 @@ def choose_series(df_one_uni: pd.DataFrame, kpi_name: str):
             return df_one_uni["Employees"], LABELS["Employees"]
         raise KeyError("'Employees' not found in this file.")
     raise KeyError(f"Unknown KPI: {kpi_name}")
-
 
 # STEP 3: MULTIVARIATE VALIDATION + MULTIVARIATE FORECASTS
 def validate_series_multivariate(series: pd.Series, pretty_label: str, df_all_cols: pd.DataFrame):
@@ -267,7 +261,6 @@ def validate_series_multivariate(series: pd.Series, pretty_label: str, df_all_co
     metrics = pd.DataFrame(rows).sort_values("RMSE").reset_index(drop=True)
     return metrics
 
-
 def predict_series_multivariate(series: pd.Series, pretty_label: str, df_all_cols: pd.DataFrame, years_ahead: int):
     """returns (rf_forecast, lstm_forecast_or_None, future_index)"""
     s = series.sort_index().astype(float).interpolate().ffill().bfill()
@@ -344,8 +337,7 @@ def predict_series_multivariate(series: pd.Series, pretty_label: str, df_all_col
 
     return rf_fore, lstm_fore, future_index
 
-
-# PLOTTING 
+# PLOTTING
 def plot_single(series, label, rf_fore, lstm_fore, future_idx, uni_key):
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.plot(series.index, series.values, 'o-', label="Actual (history)")
@@ -370,7 +362,6 @@ def plot_overlay(all_lines, kpi_name, y_label, year0, year1):
     ax.set_xlabel("Year"); ax.set_ylabel(y_axis_label(y_label))
     ax.grid(True); ax.legend(ncol=3); fig.tight_layout()
     return fig
-
 
 # STEP 4: DISPATCH / RENDER
 if not run:
@@ -425,7 +416,7 @@ try:
                 t = pd.DataFrame({"Random Forest": rf_fore}, index=future_idx)
                 if lstm_fore is not None:
                     t["LSTM"] = lstm_fore
-                tables.append(t.add_prefix(f"{uni_key.UPPER()} "))
+                tables.append(t.add_prefix(f"{uni_key.upper()} "))
 
             except Exception as e:
                 st.warning(f"{uni_key.upper()}: {e}")
