@@ -67,11 +67,11 @@ except Exception:
 np.random.seed(42)
 
 
-# STREAMLIT SIDEBAR (same spirit as notebook params)
+# STREAMLIT SIDEBAR 
 st.set_page_config(page_title="University KPI Forecasts", layout="wide")
 st.title("University KPI Forecasts")
 
-st.sidebar.header("Controls (notebook logic)")
+st.sidebar.header("Controls")
 university_choice = st.sidebar.selectbox("University", ["bsu", "eastern_oregon", "uab", "all"], index=0)
 kpi_to_run = st.sidebar.selectbox(
     "KPI",
@@ -94,7 +94,7 @@ with st.sidebar.expander("Parameters", expanded=True):
 run = st.sidebar.button("Run forecast")
 
 
-# STEP 2: HELPERS (same formulas/ideas as notebook)
+# STEP 2: HELPERS S
 
 def make_optimizer(lr=LEARNING_RATE):
     return Adam(learning_rate=lr)
